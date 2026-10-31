@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "fakesb",
+  "version": "${version}",
+  "name": "Custom SB & Cheques (demo)",
+  "description": "Konfigurowalny scoreboard HUD i czeki w trybie pokazowym. Dziala tylko w singleplayerze.",
+  "authors": ["you"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["pl.fakesb.FakeSbClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
