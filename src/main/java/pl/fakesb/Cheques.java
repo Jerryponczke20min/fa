@@ -78,13 +78,13 @@ public class Cheques {
 
     /**
      * Tworzy czek z przedmiotu w rece i dodaje go bezpośrednio do ekwipunku klienta.
-     * Działa na Singleplayer oraz Multiplayer.
+     * Generuje zieloną spiralę z cząsteczek skupioną wyłącznie wokół nóg postaci.
      */
     public static String create(MinecraftClient mc, long amt) {
         SbConfig c = FakeSbClient.CFG;
         if (amt < 1000) return "Minimalna kwota to 1000";
         if (c.money < amt) return "Za mało środków na koncie";
-        if (mc.player == null) return "Nie jesteś w grze";
+        if (mc.player == null || mc.world == null) return "Nie jesteś w grze";
 
         ItemStack held = mc.player.getMainHandStack();
         Item item = held.isEmpty() ? Items.PAPER : held.getItem();
@@ -96,13 +96,30 @@ public class Cheques {
         c.money -= amt;
         FakeSbClient.save();
 
-        // BEZPOŚREDNIE DODANIE PRZEDMIOTU DO EKWIPUNKU KLIENTA (MULTIPLAYER SAFE)
+        // Dodanie przedmiotu do ekwipunku klienta
         if (held.isEmpty()) {
-            // Jeśli gracz miał pustą rękę, wstawiamy tam papierowy czek
             mc.player.getInventory().setStack(mc.player.getInventory().selectedSlot, cheque);
         } else {
-            // W przeciwnym wypadku szukamy wolnego miejsca lub wrzucamy do ekwipunku
             mc.player.getInventory().insertStack(cheque);
+        }
+
+        // ZIELONA SPIRALA TYLKO WOKÓŁ NÓG POSTACI
+        double px = mc.player.getX();
+        double py = mc.player.getY(); // Pozycja stóp (podłoga)
+        double pz = mc.player.getZ();
+        
+        // Pętla ograniczona od yOffset = 0.0 do 0.4 (wysokość do kolan/nóg postaci)
+        for (double yOffset = 0.0; yOffset <= 0.4; yOffset += 0.04) {
+            double angle = yOffset * 25.0; // Gęstszy obrót na małej wysokości dla lepszego efektu spirali
+            double radius = 0.55;          // Szerokość kręgu wokół nóg
+            double x = px + Math.cos(angle) * radius;
+            double z = pz + Math.sin(angle) * radius;
+            
+            mc.world.addParticle(
+                    net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER, 
+                    x, py + yOffset, z, 
+                    0, 0, 0
+            );
         }
         
         return null;
