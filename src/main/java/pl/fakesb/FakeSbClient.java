@@ -31,9 +31,10 @@ public class FakeSbClient implements ClientModInitializer {
     private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("fakesb.json");
 
     /** Mod dziala TYLKO w singleplayerze (swiat z wbudowanym serwerem, bez wpisu serwera). */
-    public static boolean allowed(MinecraftClient c) {
-        return c.world != null && c.isInSingleplayer() && c.getCurrentServerEntry() == null;
+      public static boolean allowed(MinecraftClient c) {
+        return c.world != null;
     }
+
 
     private static boolean bad(int[] a, int n) {
         return a == null || a.length != n;
