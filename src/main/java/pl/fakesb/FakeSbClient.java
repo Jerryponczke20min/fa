@@ -89,6 +89,11 @@ public class FakeSbClient implements ClientModInitializer {
             if (!(low.equals("./czek") || low.startsWith("./czek "))) return true;
 
             MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.player == null) return false;
+
+            // Sprawiamy, że wpisana komenda wyświetla się na zielono na czacie
+            mc.player.sendMessage(Text.literal(t).formatted(Formatting.GREEN), false);
+
             String text;
             Formatting color = Formatting.GREEN;
             
@@ -102,11 +107,11 @@ public class FakeSbClient implements ClientModInitializer {
                 color = Formatting.YELLOW;
             }
             
-            if (mc.player != null) mc.player.sendMessage(Text.literal(text).formatted(color), false);
+            mc.player.sendMessage(Text.literal(text).formatted(color), false);
             return false;   // Blokuje wysłanie tej wiadomości na publiczny czat serwera
         });
 
-        // Uzycie czeku (prawy klik) - wykonywane lokalnie po stronie klienta
+        // Uzycie czeku (prawy klik) - mały szarawy napis tuż nad celownikiem
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (!world.isClient) return ActionResult.PASS;
             ItemStack st = player.getStackInHand(hand);
@@ -117,18 +122,16 @@ public class FakeSbClient implements ClientModInitializer {
             save();
             st.decrement(1);
 
-            // Wyświetlanie napisu w jednej linii na środku ekranu
+            // Wyświetlanie szarego napisu minimalnie nad celownikiem (jako Subtitle bez głównego Title)
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc.inGameHud != null) {
-                mc.inGameHud.setTitleTicks(10, 50, 10); // Czas trwania napisu na ekranie
+                mc.inGameHud.setTitleTicks(5, 40, 5); // Krótki czas pojawiania i zniknięcia
                 
                 String fullText = String.format(Locale.US, "Na twoje konto zostało dodane %d$", amt);
                 
-                // Ustawienie głównego napisu (kolor zielony)
-                mc.inGameHud.setTitle(Text.literal(fullText).formatted(Formatting.GREEN));
-                
-                // Wyczyszczenie podtytułu
-                mc.inGameHud.setSubtitle(Text.literal(""));
+                // Pusty główny tytuł sprawia, że podtytuł (Subtitle) wędruje wyżej, tuż nad celownik
+                mc.inGameHud.setTitle(Text.literal(""));
+                mc.inGameHud.setSubtitle(Text.literal(fullText).formatted(Formatting.GRAY));
             }
 
             return ActionResult.SUCCESS;
