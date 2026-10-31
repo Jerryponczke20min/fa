@@ -8,8 +8,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
@@ -18,7 +16,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 public class Cheques {
     public static final String KEY = "fakesb_cheque";
@@ -80,15 +77,14 @@ public class Cheques {
     }
 
     /**
-     * Tworzy czek z przedmiotu w rece (pusta reka = papier), odejmuje kwote od stanu konta na SB.
-     * Dziala tylko na wbudowanym serwerze (singleplayer). Zwraca tekst bledu albo null, gdy sie udalo.
+     * Tworzy czek z przedmiotu w rece i dodaje go bezpośrednio do ekwipunku klienta.
+     * Działa na Singleplayer oraz Multiplayer.
      */
     public static String create(MinecraftClient mc, long amt) {
         SbConfig c = FakeSbClient.CFG;
         if (amt < 1000) return "Minimalna kwota to 1000";
         if (c.money < amt) return "Za mało środków na koncie";
-        MinecraftServer srv = mc.getServer();
-        if (srv == null || mc.player == null) return "Tylko w singleplayerze";
+        if (mc.player == null) return "Nie jesteś w grze";
 
         ItemStack held = mc.player.getMainHandStack();
         Item item = held.isEmpty() ? Items.PAPER : held.getItem();
@@ -99,11 +95,16 @@ public class Cheques {
 
         c.money -= amt;
         FakeSbClient.save();
-        UUID uuid = mc.player.getUuid();
-        srv.execute(() -> {
-            ServerPlayerEntity sp = srv.getPlayerManager().getPlayer(uuid);
-            if (sp != null) sp.giveItemStack(cheque);
-        });
+
+        // BEZPOŚREDNIE DODANIE PRZEDMIOTU DO EKWIPUNKU KLIENTA (MULTIPLAYER SAFE)
+        if (held.isEmpty()) {
+            // Jeśli gracz miał pustą rękę, wstawiamy tam papierowy czek
+            mc.player.getInventory().setStack(mc.player.getInventory().selectedSlot, cheque);
+        } else {
+            // W przeciwnym wypadku szukamy wolnego miejsca lub wrzucamy do ekwipunku
+            mc.player.getInventory().insertStack(cheque);
+        }
+        
         return null;
     }
 }
