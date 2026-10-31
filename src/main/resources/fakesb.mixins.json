@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "pl.fakesb.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ChatInputSuggestorMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

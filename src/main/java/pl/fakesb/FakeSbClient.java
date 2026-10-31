@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
@@ -29,15 +30,25 @@ public class FakeSbClient implements ClientModInitializer {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("fakesb.json");
 
+    /** Mod dziala TYLKO w singleplayerze (swiat z wbudowanym serwerem, bez wpisu serwera). */
+    public static boolean allowed(MinecraftClient c) {
+        return c.world != null && c.isInSingleplayer() && c.getCurrentServerEntry() == null;
+    }
 
+    private static boolean bad(int[] a, int n) {
+        return a == null || a.length != n;
+    }
 
     public static void load() {
         try (Reader r = Files.newBufferedReader(FILE)) {
             SbConfig loaded = GSON.fromJson(r, SbConfig.class);
             if (loaded != null) {
                 SbConfig d = new SbConfig();
-                if (loaded.labelColors == null || loaded.labelColors.length != 7) loaded.labelColors = d.labelColors;
-                if (loaded.valueColors == null || loaded.valueColors.length != 7) loaded.valueColors = d.valueColors;
+                if (bad(loaded.titleColors, SbConfig.TITLE_MAX)) loaded.titleColors = d.titleColors;
+                if (bad(loaded.iconColors, 7)) loaded.iconColors = d.iconColors;
+                if (bad(loaded.labelColors, 7)) loaded.labelColors = d.labelColors;
+                if (bad(loaded.valueColors, 7)) loaded.valueColors = d.valueColors;
+                if (bad(loaded.footerColors, 3)) loaded.footerColors = d.footerColors;
                 CFG = loaded;
             }
         } catch (Exception ignored) {
@@ -61,6 +72,7 @@ public class FakeSbClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(c -> {
             while (openKey.wasPressed()) {
+                if (allowed(c)) c.setScreen(new SbScreen());
             }
         });
 
@@ -68,10 +80,37 @@ public class FakeSbClient implements ClientModInitializer {
             if (allowed(MinecraftClient.getInstance())) SbHud.render(ctx);
         });
 
+        // Komenda czatu ".czek <kwota>" - przechwytywana lokalnie, nigdy nie trafia na serwer
+        ClientSendMessageEvents.ALLOW_CHAT.register(msg -> {
+            String t = msg.trim();
+            String low = t.toLowerCase(Locale.ROOT);
+            if (!(low.equals(".czek") || low.startsWith(".czek "))) return true;
+
+            MinecraftClient mc = MinecraftClient.getInstance();
+            String text;
+            Formatting color = Formatting.GREEN;
+            if (!allowed(mc)) {
+                text = "Komenda .czek działa tylko w singleplayerze.";
+                color = Formatting.YELLOW;
+            } else {
+                long amt = Cheques.parseAmount(t.substring(5));
+                String err = amt < 0 ? "Użycie: .czek <kwota>, np. .czek 5k" : Cheques.create(mc, amt);
+                if (err == null) {
+                    text = "Czek na " + amt + "$ został utworzony.";
+                } else {
+                    text = err;
+                    color = Formatting.YELLOW;
+                }
+            }
+            if (mc.player != null) mc.player.sendMessage(Text.literal(text).formatted(color), false);
+            return false;   // wiadomosc nie jest wysylana jako zwykly czat
+        });
+
         // Uzycie czeku (prawy klik) - obslugiwane po stronie wbudowanego serwera
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (world.isClient) return ActionResult.PASS;
             if (!allowed(MinecraftClient.getInstance())) return ActionResult.PASS;
+            ItemStack st = player.getStackInHand(hand);
             long amt = Cheques.amountOf(st);
             if (amt < 0) return ActionResult.PASS;
 

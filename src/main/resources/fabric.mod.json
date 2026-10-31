@@ -7,6 +7,7 @@
   "authors": ["you"],
   "license": "MIT",
   "environment": "client",
+  "mixins": ["fakesb.mixins.json"],
   "entrypoints": {
     "client": ["pl.fakesb.FakeSbClient"]
   },
