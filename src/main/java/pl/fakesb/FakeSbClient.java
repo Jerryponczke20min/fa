@@ -61,7 +61,6 @@ public class FakeSbClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(c -> {
             while (openKey.wasPressed()) {
-                if (allowed(c)) c.setScreen(new SbScreen());
             }
         });
 
@@ -73,7 +72,6 @@ public class FakeSbClient implements ClientModInitializer {
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (world.isClient) return ActionResult.PASS;
             if (!allowed(MinecraftClient.getInstance())) return ActionResult.PASS;
-            ItemStack st = player.getStackInHand(hand);
             long amt = Cheques.amountOf(st);
             if (amt < 0) return ActionResult.PASS;
 
