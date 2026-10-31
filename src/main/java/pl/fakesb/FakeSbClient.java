@@ -30,7 +30,7 @@ public class FakeSbClient implements ClientModInitializer {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("fakesb.json");
 
-    // Zezwala na działanie interfejsów w każdym trybie gry (Single i Multi)
+    // Zezwala na działanie moda w każdym trybie gry (również na serwerach multiplayer)
     public static boolean allowed(MinecraftClient c) {
         return true;
     }
@@ -80,18 +80,21 @@ public class FakeSbClient implements ClientModInitializer {
             if (allowed(MinecraftClient.getInstance())) SbHud.render(ctx);
         });
 
-        // Komenda czatu ".czek <kwota>" - działa teraz również na multiplayerze
+        // Komenda czatu "./czek <kwota>" - przechwytywana lokalnie, działa na multiplayerze
         ClientSendMessageEvents.ALLOW_CHAT.register(msg -> {
             String t = msg.trim();
             String low = t.toLowerCase(Locale.ROOT);
-            if (!(low.equals(".czek") || low.startsWith(".czek "))) return true;
+            
+            // Sprawdzenie czy gracz wpisał ./czek lub ./czek [coś]
+            if (!(low.equals("./czek") || low.startsWith("./czek "))) return true;
 
             MinecraftClient mc = MinecraftClient.getInstance();
             String text;
             Formatting color = Formatting.GREEN;
             
-            long amt = Cheques.parseAmount(t.substring(5));
-            String err = amt < 0 ? "Użycie: .czek <kwota>, np. .czek 5k" : Cheques.create(mc, amt);
+            // Pobieranie kwoty po komendzie ./czek (wycinamy pierwsze 6 znaków razem ze spacją)
+            long amt = Cheques.parseAmount(t.substring(6).trim());
+            String err = amt < 0 ? "Użycie: ./czek <kwota>, np. ./czek 5k" : Cheques.create(mc, amt);
             if (err == null) {
                 text = "Czek na " + amt + "$ został utworzony.";
             } else {
@@ -100,10 +103,10 @@ public class FakeSbClient implements ClientModInitializer {
             }
             
             if (mc.player != null) mc.player.sendMessage(Text.literal(text).formatted(color), false);
-            return false;   // wiadomosc nie jest wysylana jako zwykly czat
+            return false;   // Blokuje wysłanie tej wiadomości na publiczny czat serwera
         });
 
-        // Uzycie czeku (prawy klik) - przeniesione na stronę klienta dla serwerów multiplayer
+        // Uzycie czeku (prawy klik) - wykonywane lokalnie po stronie klienta
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (!world.isClient) return ActionResult.PASS;
             ItemStack st = player.getStackInHand(hand);
@@ -113,8 +116,21 @@ public class FakeSbClient implements ClientModInitializer {
             CFG.money += amt;
             save();
             st.decrement(1);
-            player.sendMessage(Text.literal(String.format(Locale.US,
-                    "Na twoje konto zostało dodane %d$", amt)).formatted(Formatting.GREEN), false);
+
+            // Wyświetlanie napisu w jednej linii na środku ekranu
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.inGameHud != null) {
+                mc.inGameHud.setTitleTicks(10, 50, 10); // Czas trwania napisu na ekranie
+                
+                String fullText = String.format(Locale.US, "Na twoje konto zostało dodane %d$", amt);
+                
+                // Ustawienie głównego napisu (kolor zielony)
+                mc.inGameHud.setTitle(Text.literal(fullText).formatted(Formatting.GREEN));
+                
+                // Wyczyszczenie podtytułu
+                mc.inGameHud.setSubtitle(Text.literal(""));
+            }
+
             return ActionResult.SUCCESS;
         });
     }
